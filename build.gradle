@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '2.7.14'
     id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+    id 'org.asciidoctor.jvm.convert' version '3.3.2'
 }
 
 group = 'codestates'
@@ -12,23 +13,75 @@ java {
 }
 
 configurations {
+    asciidoctorExt
     compileOnly {
         extendsFrom annotationProcessor
     }
 }
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    //spring data jpa
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    //validation 추가
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    //web mvc
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'com.h2database:h2'
+    //lombok
     annotationProcessor 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok'
+    //h2
+    runtimeOnly 'com.h2database:h2'
+
+    //테스트
+    //테스트에서 lombok 사용
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    //test library
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    //asciidoctor
+    asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+    //junit
+    testImplementation 'junit:junit:4.13.1'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+ext {
+    snippetsDir = file('build/generated-snippets')
+}
+
+test {
+    outputs.dir snippetsDir
+    useJUnitPlatform()
+}
+
+asciidoctor {
+    configurations 'asciidoctorExt'
+    baseDirFollowsSourceFile()
+    inputs.dir snippetsDir
+    dependsOn test
+}
+
+asciidoctor.doFirst {
+    delete file('src/main/resources/static/docs')
+}
+
+task createDocument(type: Copy) {
+    dependsOn asciidoctor
+    from file("build/docs/asciidoc/")
+    into file("src/main/resources/static")
+}
+
+bootJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn createDocument
+    from("${asciidoctor.outputDir}") {
+        into 'static/docs'
+    }
 }
